@@ -1,0 +1,76 @@
+import os
+from openai import AzureOpenAI
+
+# Initialize Azure OpenAI Client
+client = AzureOpenAI(
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    api_version="2024-02-01",
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+)
+
+# Replace these with your actual model deployment names in Azure
+gpt_35_deployment_name = "gpt-35-turbo-16k"
+gpt_4_deployment_name = "gpt-4o"
+
+# List of student submissions (question-answer pairs with expected answers)
+submissions = [
+    {
+        "question": "What is supervised learning?",
+        "student_answer": "A type of machine learning where the model learns from labeled data.",
+        "expected_answer": "Supervised learning involves training a model on labeled data."
+    },
+    {
+        "question": "What is the purpose of Python's `__init__` method?",
+        "student_answer": "It is used to initiate a loop.",
+        "expected_answer": "`__init__` initializes an object's attributes when a class is instantiated."
+    },
+    {
+        "question": "Explain the concept of overfitting in machine learning.",
+        "student_answer": "When a model performs well on training data but poorly on unseen data.",
+        "expected_answer": "Overfitting occurs when the model fits the training data too closely, reducing generalization."
+    }
+]
+
+# Function to evaluate submissions using a specified model deployment name
+def evaluate_submission(deployment_name, question, student_answer, expected_answer):
+    # Construct the prompt
+    messages = [
+        {
+            "role": "system", 
+            "content": "You are an AI assistant specializing in autograding. Compare the student's answer with the expected answer and provide a score out of 10 with detailed feedback."
+        },
+        {
+            "role": "user", 
+            "content": f"""
+Question: {question}
+Expected Answer: {expected_answer}
+Student's Answer: {student_answer}
+
+Evaluate the student's answer based on correctness, clarity, and completeness. Provide a score out of 10 with feedback.
+"""
+        }
+    ]
+
+    # Send the request to the deployed model
+    response = client.chat.completions.create(
+        model=deployment_name,  # Use the deployment name for the model
+        messages=messages,
+        temperature=0.3  # Lower temperature for deterministic output
+    )
+
+    # Extract the feedback
+    feedback = response.choices[0].message.content
+    return feedback
+
+# Compare responses between GPT-3.5 and GPT-4 deployments
+for deployment_name in [gpt_35_deployment_name, gpt_4_deployment_name]:
+    print(f"\nEvaluating submissions with deployment: {deployment_name}\n")
+    for submission in submissions:
+        feedback = evaluate_submission(
+            deployment_name,
+            submission["question"],
+            submission["student_answer"],
+            submission["expected_answer"]
+        )
+        print(f"Question: {submission['question']}")
+        print(f"Model Feedback:\n{feedback}")
